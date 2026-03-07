@@ -4,7 +4,8 @@
 #define APPLICATION_NAME "game"
 #define WIDTH 800
 #define HEIGHT 600
-#define PLAYER_SPEED 100 
+#define HORIZONTAL_SPEED 100 
+#define VERTICAL_SPEED 250
 #define PIPE_GAP 200
 #define PIPE_WIDTH 100
 #define PLAYER_WIDTH 100
@@ -25,6 +26,7 @@ static Player PLAYER;
 static Pipe PIPES[NUM_PIPES];
 static SDL_FRect PIPE_MESHES[NUM_PIPES * 2];
 static SDL_FRect PLAYER_MESH;
+static SDL_Texture *TEST_TEXTURE;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
@@ -40,6 +42,20 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_APP_FAILURE;
     }
     SDL_SetRenderLogicalPresentation(renderer, WIDTH, HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+
+    SDL_Surface *tex_data = SDL_LoadPNG( "./assets/test.png");
+    if (!tex_data)
+    {
+        printf("could not load texture file");
+        return SDL_APP_FAILURE;
+    }
+    TEST_TEXTURE = SDL_CreateTextureFromSurface(renderer, tex_data);
+    if (!TEST_TEXTURE)
+    {
+        printf("could not create texture");
+        return SDL_APP_FAILURE;
+    }
+    SDL_DestroySurface(tex_data);
 
     game_init();
 
@@ -66,10 +82,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
         printf("You lost!\n");
         return SDL_APP_SUCCESS;
     };
+
     draw();
-
-    SDL_RenderDebugTextFormat(renderer, WIDTH - 200, 20, "FPS: %f", FPS);
-
+    SDL_RenderTexture(renderer, TEST_TEXTURE, NULL, &PLAYER_MESH);
     SDL_RenderPresent(renderer);
 
     DELTA = ((double)SDL_GetTicks() - START_FRAME_T) / 1000.0;
@@ -92,7 +107,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
 
 void game_init() 
 {
-    PLAYER = (Player){0.0, 0.0, PLAYER_SPEED, -PLAYER_SPEED};
+    PLAYER = (Player){0.0, 0.0, HORIZONTAL_SPEED, -VERTICAL_SPEED};
     PIPES[0] = (Pipe){FIRST_PIPE_X, (float)(rand() % (HEIGHT - PIPE_GAP - 5))};
     PIPES[1] = (Pipe){FIRST_PIPE_X + PIPE_INTERVAL, (float)(rand() % (HEIGHT - PIPE_GAP - 5))};
 }
@@ -122,24 +137,24 @@ bool update(double dt)
 
     if (key_states[SDL_SCANCODE_W]) 
     {
-        PLAYER.vy = PLAYER_SPEED;
+        PLAYER.vy = VERTICAL_SPEED;
     }
     if (key_states[SDL_SCANCODE_S]) 
     {
-        PLAYER.vy = -PLAYER_SPEED;
+        PLAYER.vy = -VERTICAL_SPEED;
     }
     if (key_states[SDL_SCANCODE_A]) 
     {
-        PLAYER.vx = -PLAYER_SPEED;
+        PLAYER.vx = -HORIZONTAL_SPEED;
     }
     if (key_states[SDL_SCANCODE_D]) 
     {
-        PLAYER.vx = PLAYER_SPEED;
+        PLAYER.vx = HORIZONTAL_SPEED;
     }
 
     PLAYER.y -= PLAYER.vy * dt;
     PLAYER.x += PLAYER.vx * dt;
-    PLAYER.vy += (-PLAYER_SPEED - PLAYER.vy) * dt;
+    PLAYER.vy += (-VERTICAL_SPEED - PLAYER.vy) * dt * 3;
     PLAYER.vx = 0;
 
     return true;
@@ -154,11 +169,11 @@ void draw()
     }
 
     SDL_SetRenderDrawColorFloat(renderer, 1.0, 0.0, 0.0, SDL_ALPHA_OPAQUE_FLOAT);
-    SDL_RenderFillRect(renderer, &PLAYER_MESH);
+    SDL_RenderTexture(renderer, TEST_TEXTURE, NULL, &PLAYER_MESH);
     SDL_SetRenderDrawColorFloat(renderer, 0.0, 1.0, 0.0, SDL_ALPHA_OPAQUE_FLOAT);
     for(size_t i=0; i < NUM_PIPES * 2; i++) 
     {
-        SDL_RenderFillRect(renderer, PIPE_MESHES + i);
+        SDL_RenderTexture(renderer, TEST_TEXTURE, NULL, PIPE_MESHES + i);
     }
 }
 
