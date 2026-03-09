@@ -49,7 +49,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     GameState* game_state = (GameState *) appstate;
     game_state->start_frame_t = SDL_GetTicks();
 
-    SDL_SetRenderDrawColorFloat(renderer, 0.1, 0.5, 0.8, SDL_ALPHA_OPAQUE_FLOAT);
+    SDL_SetRenderDrawColorFloat(renderer, 0.6, 0.8, 0.99, SDL_ALPHA_OPAQUE_FLOAT);
     SDL_RenderClear(renderer);
 
     if (!update(game_state->delta_t, game_state)) {
@@ -58,6 +58,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     };
 
     draw(game_state);
+    SDL_SetRenderDrawColorFloat(renderer, 0.0, 0.0, 0.0, SDL_ALPHA_OPAQUE_FLOAT);
     SDL_RenderDebugTextFormat(renderer, WIDTH - 200, 50, "%f FPS", game_state->fps);
     SDL_RenderPresent(renderer);
 
@@ -193,7 +194,6 @@ void draw(GameState *state)
             state->meshes.pipes + 2*i + 1);
     }
 
-    SDL_SetRenderDrawColorFloat(renderer, 0.6, 0.8, 0.99, SDL_ALPHA_OPAQUE_FLOAT);
     SDL_RenderTextureRotated(
             renderer, 
             state->textures.bird, 
@@ -203,7 +203,6 @@ void draw(GameState *state)
             NULL,
             SDL_FLIP_NONE);
 
-    SDL_SetRenderDrawColorFloat(renderer, 0.0, 0.0, 0.0, SDL_ALPHA_OPAQUE_FLOAT);
     for(size_t i=0; i < NUM_PIPES * 2; i++) {
         SDL_RenderTextureRotated(
             renderer, 
