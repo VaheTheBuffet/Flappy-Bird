@@ -9,6 +9,7 @@
 #define MIN(a, b) ((a < b) ? a : b)
 #define MAX(a, b) ((a > b) ? a : b)
 #define CLAMP(x, a, b) (MIN(MAX(a, x), b))
+#define LEN(array) (sizeof(array) / sizeof(array[0]))
 
 #define APPLICATION_NAME "Flappy Bird"
 #define WIDTH 800
@@ -36,6 +37,7 @@ typedef struct {
 typedef struct {
     float x;
     float height;
+    bool scored;
 } Pipe;
 
 typedef struct {
@@ -50,11 +52,18 @@ typedef struct {
 } TextureState;
 
 typedef struct {
+    int current_sine_sample;
+    bool should_sound;
+} AudioState;
+
+typedef struct {
     Player player;
     Pipe pipes[2];
     double fps, second, start_frame_t, delta_t;
     MeshState meshes;
     TextureState textures;
+    AudioState audio_state;
+    int score;
 } GameState;
 
 bool load_texture(const char* path, SDL_Texture **tex); 
@@ -64,5 +73,6 @@ bool collision(Pipe* pipe, Player* player);
 void game_init(GameState *state);
 void draw(GameState *state);
 bool update(double dt, GameState* state);
+static void SDLCALL FeedAudio(void *userdata, SDL_AudioStream *astream, int additional_ammount, int total_ammount);
 
 #endif

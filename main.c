@@ -3,13 +3,14 @@
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+static SDL_AudioStream *astream = NULL;
 static GameState GAMESTATE;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     SDL_SetAppMetadata("Flappy Bird", "1.0", "com.saucer.flappy-bird");
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -32,6 +33,19 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
     game_init(&GAMESTATE);
     *appstate = (void*)&GAMESTATE;
+
+    SDL_AudioSpec spec = {
+        .format = SDL_AUDIO_F32,
+        .channels = 1,
+        .freq = 8000,
+    };
+
+    astream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, FeedAudio, &GAMESTATE.audio_state);
+    if(!astream) {
+        SDL_Log("Could not create audio stream: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+    SDL_ResumeAudioStreamDevice(astream);
 
     return SDL_APP_CONTINUE;
 }
@@ -59,7 +73,11 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     draw(game_state);
     SDL_SetRenderDrawColorFloat(renderer, 0.0, 0.0, 0.0, SDL_ALPHA_OPAQUE_FLOAT);
-    SDL_RenderDebugTextFormat(renderer, WIDTH - 200, 50, "%f FPS", game_state->fps);
+    SDL_SetRenderScale(renderer, 2.0, 2.0);
+    SDL_RenderDebugTextFormat(renderer, 0, 0, "%f FPS", game_state->fps);
+    SDL_SetRenderScale(renderer, 4.0, 4.0);
+    SDL_RenderDebugTextFormat(renderer, (WIDTH-100) / 4.0, 20, "%d", game_state->score);
+    SDL_SetRenderScale(renderer, 1.0, 1.0);
     SDL_RenderPresent(renderer);
 
     game_state->delta_t = ((double)SDL_GetTicks() - game_state->start_frame_t) / 1000.0;
@@ -121,6 +139,8 @@ void game_init(GameState *state)
         0.0, 0.0,
         WIDTH, HEIGHT / 2
     };
+
+    state->audio_state.current_sine_sample = 0;
 }
 
 //Returns false on game over
@@ -130,13 +150,20 @@ bool update(double dt, GameState *state) {
             return false;
         }
     }
+
+    if (state->player.x > state->pipes[0].x && state->pipes[0].scored == false) {
+        state->audio_state.should_sound = true;
+        state->score++;
+        state->pipes[0].scored = true;
+    }
     //PIPES[0] is always the earlier pipe
     if (state->player.x - state->pipes[0].x > PIPE_INTERVAL) {
         state->pipes[0] = state->pipes[1];
         state->pipes[1] = (Pipe){
             state->pipes[0].x + PIPE_INTERVAL, 
             //5 is an offset so the pipe isn't at the very edge of the screen
-            (float)(rand() % (HEIGHT - PIPE_GAP - 5)) 
+            (float)(rand() % (HEIGHT - PIPE_GAP - 5)),
+            false
         };
     }
 
@@ -255,4 +282,30 @@ bool collision(Pipe *pipe, Player *player)
         || player->y + PLAYER_HEIGHT > pipe->height + PIPE_GAP;
 
     return x_collision && y_collision;
+}
+
+static void SDLCALL FeedAudio(void *userdata, SDL_AudioStream *astream, int additional_ammount, int total_ammount)
+{
+    AudioState *state = (AudioState*)userdata;
+
+    if (!state->should_sound)  {
+        return;
+    }
+    state->should_sound = false;
+
+    additional_ammount /= sizeof(float);
+    while(additional_ammount > 0) {
+        float samples[1536];
+        const int total = MAX(additional_ammount, LEN(samples));
+
+        for(int i=0; i<total; i++) {
+            const int freq = 1000;
+            const float phase = state->current_sine_sample++ * freq / 8000.0f;
+            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F) + SDL_sinf(phase * SDL_PI_F);
+        }
+
+        state->current_sine_sample %= 8000;
+        SDL_PutAudioStreamData(astream, samples, total * sizeof(float));
+        additional_ammount -= total;
+    }
 }
